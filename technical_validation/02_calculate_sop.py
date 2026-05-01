@@ -2,6 +2,8 @@ import polars as pl
 import argparse
 from tqdm import tqdm
 import rustworkx as rx
+import random
+import networkx as nx
 import json
 
 PAIRS_PATH = '/Users/piotrkaniewski/work/ec-kg-analysis/data/off_label_pairs_sop.parquet'
@@ -11,20 +13,21 @@ parser.add_argument('--kg_name', type=str, required=True)
 parser.add_argument('--kg_path', type=str, required=True)
 args = parser.parse_args()
 
-def calculate_sop(pairs, g, node_id_to_idx):
+def calculate_sop(pairs, g, node_id_to_idx, null=False):
     # Create a mapping from node IDs to internal indices (used in build_graph)
     sop_dict = {}
-    for pair in tqdm(pairs.to_dicts()):
-        source = pair['source']
-        target = pair['target']
+    for source, target in tqdm(pairs.iter_rows(named=False)):
         # Map node ids to indices in the graph
         source_idx = node_id_to_idx[source]
         target_idx = node_id_to_idx[target]
         if source_idx is not None and target_idx is not None:
             # Find all simple paths between source_idx and target_idx
-            paths = list(rx.all_simple_paths(g, source_idx, target_idx, min_depth=1, cutoff=3))
+            paths = list(rx.all_simple_paths(g, source_idx, target_idx, min_depth=0, cutoff=3))
             sop = len(paths)
-        sop_dict[f'{source}|{target}'] = {'sop': sop, 'paths': paths}
+        if null:
+            sop_dict[f'{source}|{target}'] = {'sop': sop, 'paths': []}
+        else:
+            sop_dict[f'{source}|{target}'] = {'sop': sop, 'paths': paths}
     return sop_dict
         
 
@@ -97,6 +100,18 @@ def add_edge_type(sop_dict, edges, nodes):
         sop_dict[pair]['paths_metadata'] = paths_metadata
     return sop_dict
 
+
+def calculate_null_model(nodes, raw_edges, pairs):
+    N = 100
+    null_sop_dict = {}
+    for i in tqdm(range(N)): 
+        print('rewiring...')
+        edges = raw_edges.with_columns(pl.col('subject').shuffle(seed=i)).unique()
+        g, node_id_to_idx = build_graph(edges)
+        print('calculating sop...')
+        null_sop_dict[i] = calculate_sop(pairs, g, node_id_to_idx, null=True)
+    return null_sop_dict
+
 def main():
     pairs = pl.read_parquet(PAIRS_PATH, columns=['source','target'])
     edges = pl.read_parquet(f'{args.kg_path}/edges.norm', columns=['subject','predicate','object'])
@@ -106,24 +121,32 @@ def main():
     print(f'Building graph for {kg_name}...')
     g, node_id_to_idx = build_graph(edges)
     
-    print(f'Calculating SOP for {kg_name}...')
-    sop_dict = calculate_sop(pairs, g, node_id_to_idx)
+    # print(f'Calculating SOP for {kg_name}...')
+    # sop_dict = calculate_sop(pairs, g, node_id_to_idx)
     
-    print(f'Writing raw sop results for {kg_name}...')
-    with open(f'data/sop/raw/{kg_name}_sop.json', 'w') as f:
-        json.dump(sop_dict, f)
+    # print(f'Writing raw sop results for {kg_name}...')
+    # with open(f'data/sop/raw/{kg_name}_sop.json', 'w') as f:
+    #     json.dump(sop_dict, f, indent=2, sort_keys=True)
     
-    print(f'Translating paths for {kg_name}...')
-    sop_dict = translate_paths(sop_dict, node_id_to_idx)
+    # print(f'Translating paths for {kg_name}...')
+    # sop_dict = translate_paths(sop_dict, node_id_to_idx)
     
-    print(f'Writing intermediate sop results for {kg_name}...')
-    with open(f'data/sop/int/{kg_name}_sop.json', 'w') as f:
-        json.dump(sop_dict, f)
+    # print(f'Writing intermediate sop results for {kg_name}...')
+    # with open(f'data/sop/int/{kg_name}_sop.json', 'w') as f:
+    #     json.dump(sop_dict, f, indent=2, sort_keys=True)
 
-    sop_dict = add_edge_type(sop_dict, edges, nodes)
-    print(f'Writing primary sop results for {kg_name}...')
-    with open(f'data/sop/prm/{kg_name}_sop.json', 'w') as f:
-        json.dump(sop_dict, f)
+    # sop_dict = add_edge_type(sop_dict, edges, nodes)
+    # print(f'Writing primary sop results for {kg_name}...')
+    # with open(f'data/sop/prm/{kg_name}_sop.json', 'w') as f:
+    #     json.dump(sop_dict, f, indent=2, sort_keys=True)
+    
+    print('Calculating null model...')
+    null_model_sop_dict = calculate_null_model(nodes, edges, pairs)
+    print(f'Writing null model sop results for {kg_name}...')
+    with open(f'data/sop/null/{kg_name}_sop.json', 'w') as f:
+        json.dump(null_model_sop_dict, f, indent=2, sort_keys=True)
 
+    
 if __name__ == '__main__':
+    mp.freeze_support()
     main()

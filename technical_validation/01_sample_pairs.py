@@ -60,12 +60,12 @@ class OffLabelPairSampler(ABC):
             )
 
     def write_pairs(self, name='off_label_pairs_sop.parquet', only_direct_connection=False):
-        n_samples = 10
+        n_samples = 200
         if only_direct_connection:
             self.pairs = self.pairs.filter(pl.col('direct_connection')).sample(n_samples)
         else:
             self.pairs = pl.concat([self.pairs.filter(pl.col('direct_connection')).sample(n_samples*0.8), self.pairs.filter(~pl.col('direct_connection')).sample(n_samples*0.2)])
-        self.pairs.write_parquet(f'../data/{name}')
+        self.pairs.write_parquet(f'data/{name}')
     
     def run(self):
         print('Running intersection...')
