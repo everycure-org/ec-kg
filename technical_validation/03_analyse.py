@@ -1,7 +1,7 @@
 import polars as pl
 import json
 import random
-
+import gcsfs
 KG_DICT = {
     'PrimeKG': '/Users/piotrkaniewski/work/ec-kg-analysis/data/sop_no_filtered_kg/prm/primekg_sop.json',
     'Robokop': '/Users/piotrkaniewski/work/ec-kg-analysis/data/sop_no_filtered_kg/prm/robokop_sop.json',
@@ -19,12 +19,17 @@ def compute_average_sop(kg_results):
     return sum(sops) / len(sops)
 
 def main():
-    # 1. Load all KG SOP dicts
+    fs = gcsfs.GCSFileSystem()
+    # 1. Load all KG SOP dicts (restrict to first 100 pairs for each KG)
     kg_dict = {}
     for kg, kg_path in KG_DICT.items():
-        with open(kg_path, 'r') as f:
+        print('loading kg: ', kg)
+
+        with fs.open(kg_path, 'rb') as f:
             sop_dict = json.load(f)
-        kg_dict[kg] = sop_dict
+        # Take only the first 100 pairs (head 100) as per insertion order
+        head_100_dict = dict(list(sop_dict.items()))
+        kg_dict[kg] = head_100_dict
 
     # 2. Calculate average SOP per KG and summarize
     averages = []
@@ -55,7 +60,7 @@ def main():
     # Shuffle and select 10 (or less if <10 available)
     random.seed(42)  # For reproducibility
     random.shuffle(candidates)
-    selected = candidates[:100]
+    selected = candidates
 
     print("\n### 100 Example Drug Repurposing Pairs")
     example_rows = []
