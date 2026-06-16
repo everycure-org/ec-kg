@@ -1,6 +1,6 @@
-# EC-KG analysis and usage
+# EC-KG: Every Cure Knowledge Graph, a Unified Biomedical Knowledge Graph for Drug Repurposing
 
-This repository contains complementary analysis code to the Every Cure KG publication. DOI and arxiv link to be added. 
+This repository contains complementary analysis code to the _Every Cure Knowledge Graph, a Unified Biomedical Knowledge Graph for Drug Repurposing_ publication. DOI and arxiv link to be added. 
 
 ![graphical-abstract](./assets/kg_paper_fig1_v2.drawio.png)
 
