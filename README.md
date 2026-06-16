@@ -8,6 +8,14 @@ This repository contains complementary analysis code to the Every Cure KG public
 
 If you are interested in using EC-KG, please see our [hugging face org](https://huggingface.co/datasets/everycure) - this is where you can find information on EC-KG [nodes](https://huggingface.co/datasets/everycure/kg-nodes), [edges](https://huggingface.co/datasets/everycure/kg-edges) as well as supplementary [drug list](https://huggingface.co/datasets/everycure/drug-list), [disease list](https://huggingface.co/datasets/everycure/disease-list) and [indications list](https://huggingface.co/datasets/everycure/indications-list). 
 
+You can load EC-KG nodes and edges with a few lines of code with help of HF Datasets library:
+```
+from datasets import load_dataset
+
+edges_ds = load_dataset("everycure/kg-edges")
+nodes_ds = load_dataset("everycure/kg-nodes")
+```
+
 ## Setup
 ```
 make venv
