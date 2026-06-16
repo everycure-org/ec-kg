@@ -1,3 +1,4 @@
+"""Script used to calculate top primary knowledge sources for each upstream KG in EC-KG"""
 import polars as pl
 import os 
 import dotenv
