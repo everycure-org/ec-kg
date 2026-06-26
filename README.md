@@ -26,7 +26,7 @@ If you want to reproduce EC-KG construction, see code constructing EC-KG, see [M
 uv venv
 uv sync
 make local_test # to see if pipeline works as expected
-kedro run --pipeline data_engineering
+kedro run --pipeline data_engineering # to reconstruct
 ```
 Detailed documentation how to use MATRIX pipeline can be found at https://docs.dev.everycure.org/getting_started/
 
@@ -46,15 +46,13 @@ To reproduce Knowledge Source Aggregation Analysis, run:
 make knowledge_source_aggregation
 ```
 
-### To reproduce Filtering 
-
 ### Machine Learning Validation
-To reproduce the ML-based validation of computational drug repurposing use case, one needs to reproduce the KG re-construction and modelling run using [MATRIX modelling pipeline](https://github.com/everycure-org/matrix/tree/feat/kg-manuscript-model-run). However, for reproducibility, we provide a script which will set up datasets correctly for reproduction to work.
-
-0. To reconstruct KG and then produce ML-based validation, do the following: 
-```
-TODO: 
-```
+To reproduce the ML-based validation of computational drug repurposing use case, one needs to reproduce the KG re-construction and modelling run using [MATRIX modelling pipeline](https://github.com/everycure-org/matrix/tree/feat/kg-manuscript-model-run). 
+0. Re-construct EC-KG using MATRIX pipeline using git sha `60369715eff704384189ce11a22c4a0cbc0b9f24`. This step is essential to ensure all datasets are aligned with the kedro data catalog, enabling MATRIX modelling pipeline running out of the box
+```bash
+git checkout 60369715eff704384189ce11a22c4a0cbc0b9f24
+kedro run --pipeline data_engineering 
+``` 
 1. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for RTX-KG2 using git sha `93c6b0e1e9b35f397763b1c8a216a2e9468984f6`:
 ```bash
 git checkout 93c6b0e1e9b35f397763b1c8a216a2e9468984f6
