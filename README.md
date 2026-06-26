@@ -1,6 +1,10 @@
 # EC-KG: Every Cure Knowledge Graph, a Unified Biomedical Knowledge Graph for Drug Repurposing
 
-This repository contains complementary analysis code to the _Every Cure Knowledge Graph, a Unified Biomedical Knowledge Graph for Drug Repurposing_ publication. DOI and arxiv link to be added. 
+This repository contains complementary analysis code to the Every Cure KG publication. 
+
+DOI to the datasets published: doi.org/10.5281/zenodo.20815441
+Paper: to be added
+
 
 ![graphical-abstract](./assets/kg_paper_fig1_v2.drawio.png)
 
@@ -15,13 +19,15 @@ from datasets import load_dataset
 edges_ds = load_dataset("everycure/kg-edges")
 nodes_ds = load_dataset("everycure/kg-nodes")
 ```
-
-## Setup
+## EC-KG re-construction
+If you want to reproduce EC-KG construction, see code constructing EC-KG, see [MATRIX repo](https://github.com/everycure-org/matrix). MATRIX pipeline can be used out of the box to re-construct KG by running a series of `make` commands:
+```bash
+uv venv
+uv sync
+make local_test # to see if pipeline works as expected
+kedro run --pipeline data_engineering
 ```
-make venv
-```
-## EC-KG Construction
-For code constructing EC-KG, see [MATRIX repo](https://github.com/everycure-org/matrix). 
+Detailed documentation how to use MATRIX pipeline can be found at https://docs.dev.everycure.org/getting_started/
 
 
 ## Technical Validation
@@ -34,7 +40,42 @@ make emergence_novel_context
 ```
 
 ### Knowledge Source Aggregation
+To reproduce Knowledge Source Aggregation Analysis, run:
 ```
 make knowledge_source_aggregation
 ```
 
+### To reproduce Filtering 
+
+### Machine Learning Validation
+To reproduce the ML-based validation of computational drug repurposing use case, one needs to reproduce the KG re-construction and modelling run using [MATRIX modelling pipeline](https://github.com/everycure-org/matrix/tree/feat/kg-manuscript-model-run). However, for reproducibility, we provide a script which will set up datasets correctly for reproduction to work.
+
+0. To reconstruct KG and then produce ML-based validation, do the following: 
+```
+TODO: 
+```
+1. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for RTX-KG2 using git sha `93c6b0e1e9b35f397763b1c8a216a2e9468984f6`:
+```bash
+git checkout 93c6b0e1e9b35f397763b1c8a216a2e9468984f6
+kedro run --pipeline feature_and_modelling
+```
+2. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for PrimeKG using git sha `252cb6ff785e3d4dd5744cd597b797288101c8f7`:
+```bash
+git checkout 252cb6ff785e3d4dd5744cd597b797288101c8f7
+kedro run --pipeline feature_and_modelling
+```
+3. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for ROBOKOP using git sha `412d47c671520f9166c42ea2012902c1c9a1a697` 
+```bash
+git checkout 412d47c671520f9166c42ea2012902c1c9a1a697
+kedro run --pipeline feature_and_modelling
+```
+4. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for EC-KG using git sha `2a8b1d6d677190b5638e87ac8ab5acf918836bba`
+```bash
+git checkout 2a8b1d6d677190b5638e87ac8ab5acf918836bba
+kedro run --pipeline feature_and_modelling
+```
+
+Once the modelling pipelines run to completion, the following makefile command can be executed to reproduce analysis present in the Technical Validation section:
+```
+make ml_validation
+```
