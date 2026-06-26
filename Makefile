@@ -14,6 +14,10 @@ sample_pairs:
 analyse_sop:
 	python technical_validation/novel_context/03_analyse.py
 
+analyse_metapath:
+	python technical_validation/novel_context/04_metapath_analysis.py
+	python technical_validation/novel_context/05_visualize_metapath_analysis.py
+
 generate_sop:
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name primekg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/primekg
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name robokop --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/robokop
