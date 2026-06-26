@@ -20,3 +20,7 @@ generate_sop:
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name rtx_kg2 --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/rtx_kg2
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name integrated_kg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/integrated_kg
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name filtered_kg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/filtered_kg
+
+# NOTE: this command assumes that modelling results and outputs are stored in GCS or paths specified in the analyse_output.py script
+ml_validation:
+	python technical_validation/ml_validation/analyse_output.py
