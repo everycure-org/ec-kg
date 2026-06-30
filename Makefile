@@ -16,7 +16,8 @@ analyse_sop:
 
 analyse_metapath:
 	python technical_validation/novel_context/04_metapath_analysis.py
-	python technical_validation/novel_context/05_visualize_metapath_analysis.py
+	python technical_validation/novel_context/05_visualize_metapath_analysis.py --input /Users/piotrkaniewski/work/ec-kg-analysis/technical_validation/metapath_diversity.csv
+	python technical_validation/novel_context/06_visualize_intermediate_nodes.py
 
 generate_sop:
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name primekg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/primekg
