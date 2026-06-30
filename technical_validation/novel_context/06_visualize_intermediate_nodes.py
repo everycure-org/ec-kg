@@ -61,7 +61,7 @@ CATEGORIES_OF_INTEREST = [
 
 # Publication style
 sns.set_style('whitegrid')
-plt.rcParams.update({'figure.dpi': 300, 'font.size': 10, 'font.family': 'sans-serif'})
+plt.rcParams.update({'figure.dpi': 300, 'font.size': 12, 'font.family': 'sans-serif'})
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +234,13 @@ def _build_ax_data(intermediate_stats: dict) -> dict:
     return ax_data
 
 
-def plot_barplot_ax(ax: plt.Axes, intermediate_stats: dict, title: str, legend: bool = True) -> None:
+def plot_barplot_ax(
+    ax: plt.Axes,
+    intermediate_stats: dict,
+    title: str,
+    legend: bool = True,
+    show_ylabel: bool = True,
+) -> None:
     """
     Draw a grouped barplot of key biological entity intermediate node counts.
 
@@ -243,27 +249,30 @@ def plot_barplot_ax(ax: plt.Axes, intermediate_stats: dict, title: str, legend: 
         intermediate_stats: output of analyze_intermediate_nodes.
         title:              subplot title.
         legend:             whether to show the legend.
+        show_ylabel:        whether to show the y-axis label.
     """
     ax_data = _build_ax_data(intermediate_stats)
 
     x = np.arange(len(KG_NAMES))
     n_cats = len(CATEGORIES_OF_INTEREST)
-    width = 0.13
+    width = 0.16
 
     for i, cat in enumerate(CATEGORIES_OF_INTEREST):
         offset = (i - n_cats / 2 + 0.5) * width
         ax.bar(x + offset, ax_data[cat], width,
                label=cat, alpha=0.85, edgecolor='black', linewidth=0.4)
 
-    ax.set_xlabel('Knowledge Graph', fontsize=13, fontweight='bold')
-    ax.set_ylabel('Number of Intermediate Nodes', fontsize=13, fontweight='bold')
-    ax.set_title(title, fontsize=16, fontweight='bold', pad=15)
+    ax.set_xlabel('Knowledge Graph', fontsize=18, fontweight='bold')
+    if show_ylabel:
+        ax.set_ylabel('Number of Intermediate Nodes', fontsize=18, fontweight='bold')
+    ax.set_title(title, fontsize=18, fontweight='bold', pad=18)
     ax.set_xticks(x)
-    ax.set_xticklabels(KG_NAMES, rotation=45, ha='right')
+    ax.set_xticklabels(KG_NAMES, rotation=45, ha='right', fontsize=15)
+    ax.tick_params(axis='y', labelsize=15)
     ax.grid(axis='y', alpha=0.3)
     ax.yaxis.set_major_formatter(EngFormatter())
     if legend:
-        ax.legend(fontsize=10, loc='upper left', frameon=True)
+        ax.legend(fontsize=15, loc='upper left', frameon=True)
 
 
 # ---------------------------------------------------------------------------
@@ -318,17 +327,19 @@ def plot_intermediate_node_comparison(
     Create a two-panel figure comparing intermediate node distributions for
     2-hop and 3-hop paths side by side and save to VIZ_DIR.
     """
-    fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(14, 6))
+    fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(16, 7))
 
     plot_barplot_ax(
         ax_left, stats_2hop,
         'A. Key Biological Entities as\nIntermediate Nodes (2-hop paths)',
         legend=True,
+        show_ylabel=True,
     )
     plot_barplot_ax(
         ax_right, stats_3hop,
         'B. Key Biological Entities as\nIntermediate Nodes (3-hop paths)',
-        legend=False
+        legend=False,
+        show_ylabel=False,
     )
 
     plt.tight_layout()
@@ -336,6 +347,25 @@ def plot_intermediate_node_comparison(
     save_figure(join_path(VIZ_DIR, 'intermediate_node_2v3hop.svg'))
     print(f'\n✓ Saved figure to {VIZ_DIR}/intermediate_node_2v3hop.png / .svg')
     plt.close()
+
+
+def _df_to_stats(df: pd.DataFrame) -> dict:
+    """
+    Convert a tidy DataFrame (as saved by save_figure_data) for a single hop
+    count into the stats dict expected by plot_barplot_ax.
+
+    Input columns: kg_name, category, count, total_intermediates, unique_types
+    Output: {kg_name: {'counts': {category: count, ...}, 'total': int, 'unique_types': int}}
+    """
+    stats = {}
+    for kg_name, group in df.groupby('kg_name'):
+        stats[kg_name] = {
+            'counts': dict(zip(group['category'], group['count'])),
+            'total': int(group['total_intermediates'].iloc[0]) if len(group) else 0,
+            'unique_types': int(group['unique_types'].iloc[0]) if len(group) else 0,
+        }
+    return stats
+
 
 # ---------------------------------------------------------------------------
 # Entry point
@@ -349,6 +379,6 @@ def main():
 
     save_figure_data(stats_2hop, stats_3hop, VIZ_DIR)
     plot_intermediate_node_comparison(stats_2hop, stats_3hop)
-    
+
 if __name__ == '__main__':
     main()
