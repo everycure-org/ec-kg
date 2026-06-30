@@ -48,29 +48,29 @@ make knowledge_source_aggregation
 
 ### Machine Learning Validation
 To reproduce the ML-based validation of computational drug repurposing use case, one needs to reproduce the KG re-construction and modelling run using [MATRIX modelling pipeline](https://github.com/everycure-org/matrix/tree/feat/kg-manuscript-model-run). 
-0. Re-construct EC-KG using MATRIX pipeline using git sha `60369715eff704384189ce11a22c4a0cbc0b9f24`. This step is essential to ensure all datasets are aligned with the kedro data catalog, enabling MATRIX modelling pipeline running out of the box
+0. Re-construct EC-KG using MATRIX pipeline using git sha `60369715eff704384189ce11a22c4a0cbc0b9f24`. This step is essential to ensure all datasets are aligned with the kedro data catalog, enabling MATRIX modelling pipeline running out of the box.
 ```bash
 git checkout 60369715eff704384189ce11a22c4a0cbc0b9f24
 kedro run --pipeline data_engineering 
 ``` 
-1. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for RTX-KG2 using git sha `93c6b0e1e9b35f397763b1c8a216a2e9468984f6`:
+1. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for RTX-KG2 using git sha `5654eec23ca9662e168432614a7b40499a3cfb9f`:
 ```bash
-git checkout 93c6b0e1e9b35f397763b1c8a216a2e9468984f6
+git checkout 5654eec23ca9662e168432614a7b40499a3cfb9f
 kedro run --pipeline feature_and_modelling
 ```
-2. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for PrimeKG using git sha `252cb6ff785e3d4dd5744cd597b797288101c8f7`:
+2. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for PrimeKG using git sha `2d93853a2703b33c75ca535a8ec2c60407ce56e0`:
 ```bash
-git checkout 252cb6ff785e3d4dd5744cd597b797288101c8f7
+git checkout 2d93853a2703b33c75ca535a8ec2c60407ce56e0
 kedro run --pipeline feature_and_modelling
 ```
-3. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for ROBOKOP using git sha `412d47c671520f9166c42ea2012902c1c9a1a697` 
+3. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for ROBOKOP using git sha `88d1c75ef534a02b2ac1ee3a808c057de601f8d9` 
 ```bash
-git checkout 412d47c671520f9166c42ea2012902c1c9a1a697
+git checkout 88d1c75ef534a02b2ac1ee3a808c057de601f8d9
 kedro run --pipeline feature_and_modelling
 ```
-4. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for EC-KG using git sha `2a8b1d6d677190b5638e87ac8ab5acf918836bba`
+4. Using [MATRIX pipeline](https://github.com/everycure-org/matrix), run `feature_modelling` pipeline for EC-KG using git sha `58ff055483c1fe1fb6f3ee57379729e4ac753e4d`
 ```bash
-git checkout 2a8b1d6d677190b5638e87ac8ab5acf918836bba
+git checkout 58ff055483c1fe1fb6f3ee57379729e4ac753e4d
 kedro run --pipeline feature_and_modelling
 ```
 
