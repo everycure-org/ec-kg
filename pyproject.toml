@@ -1,7 +1,7 @@
 [project]
 name = "ec-kg-analysis"
 version = "0.1.0"
-description = "Add your description here"
+description = "dependencies for ec-kg-analysis repo"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
