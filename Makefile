@@ -5,6 +5,7 @@
 
 knowledge_source_aggregation:
 	python technical_validation/knowledge_source_aggregation/kg_source_aggregation.py
+	python technical_validation/knowledge_source_aggregation/kg_source_aggregation_shared.py
 
 novel_context: sample_pairs generate_sop analyse_sop
 
