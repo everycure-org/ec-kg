@@ -7,13 +7,13 @@ import dotenv
 # load env variables with your HF_TOKEN
 dotenv.load_dotenv()
 
-# # loading datasets through Dataset repo instead of polars library directly to avoid rate-limits
-# df = Dataset.to_polars(load_dataset("everycure/kg-edges")['train'])
+# loading datasets through Dataset repo instead of polars library directly to avoid rate-limits
+df = Dataset.to_polars(load_dataset("everycure/kg-edges")['train'])
 
-# # filter for PrimeKG, RoboKOP and RTX-KG2 and save each for duckdb extraction
-# df.filter(pl.col('upstream_data_source').list.contains('primekg')).write_parquet('data/primekg_edges.parquet')
-# df.filter(pl.col('upstream_data_source').list.contains('robokop')).write_parquet('data/robokop_edges.parquet')
-# df.filter(pl.col('upstream_data_source').list.contains('rtxkg2')).write_parquet('data/rtx_kg2_edges.parquet')
+# filter for PrimeKG, RoboKOP and RTX-KG2 and save each for duckdb extraction
+df.filter(pl.col('upstream_data_source').list.contains('primekg')).write_parquet('data/primekg_edges.parquet')
+df.filter(pl.col('upstream_data_source').list.contains('robokop')).write_parquet('data/robokop_edges.parquet')
+df.filter(pl.col('upstream_data_source').list.contains('rtxkg2')).write_parquet('data/rtx_kg2_edges.parquet')
 
 # run SQL to calculate edge counts per source
 query = """
