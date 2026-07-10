@@ -1,6 +1,8 @@
 import sys
+from pathlib import Path
 import polars as pl
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 from typing import List, Tuple, Optional, Dict
@@ -8,8 +10,28 @@ from sklearn.metrics import f1_score
 
 # Importing experimental evaluation suite
 sys.path.append('/Users/piotrkaniewski/work/lab-notebooks/alexei/5_experimental_evaluation_suite_v0_1/src/')
+sys.path.append(str(Path(__file__).parent))
+from fig_style import (
+    apply_style,
+    figsize, grid_figsize,
+    style_title, clean_spines, grid_y,
+    LEGEND_KWARGS,
+    TITLE_SIZE, AXIS_LABEL_SIZE, TICK_LABEL_SIZE, ANNOTATION_SIZE,
+    PAGE_WIDTH_IN,
+    savefig as save_fig,
+)
 
 BUCKET_NAME = 'mtrx-us-central1-hub-dev-storage'
+
+# Okabe-Ito bluish-green (#009E73) chosen for EC-KG: maximally distinct from the
+# Tableau cyan/blue/orange used by the three source KGs, and a standard member of
+# both the Okabe-Ito and Tol colorblind-safe palettes.
+KG_COLORS: Dict[str, str] = {
+    "EC-KG":     "#009E73",
+    "PrimeKG":   "#FF7F0E",
+    "RobokopKG": "#17BECF",
+    "RTX-KG":    "#1F77B4",
+}
 
 # Note: pathways are pointing to GCS as thats the data lake underlying MATRIX platform; modify if needed
 KG_CONFIGS = {
@@ -28,12 +50,41 @@ KG_CONFIGS = {
 }
 
 
-def load_kg_matrices(run_path: str, cache_base: str, bucket, n_folds: int = 5) -> List[pl.DataFrame]:
-    """Load matrix predictions for all folds of a single KG run."""
+CACHE_DIR = Path(__file__).parent / ".matrix_cache"
+
+
+def load_kg_matrices(run_path: str, n_folds: int = 5, cache: bool = True) -> List[pl.DataFrame]:
+    """
+    Load matrix predictions for all folds of a single KG run.
+
+    On first call the data is downloaded from GCS and written to
+    CACHE_DIR/<slug>/fold_<n>.parquet.  Subsequent calls read from disk,
+    skipping the remote download entirely.
+
+    Args:
+        run_path: GCS prefix for the run (used both as download source and to
+                  derive a stable cache key).
+        n_folds:  Number of CV folds to load.
+        cache:    Set to False to force a fresh download regardless of cache.
+    """
+    slug = run_path.rstrip("/").split("/")[-1]
+    run_cache = CACHE_DIR / slug
     matrices = []
+
     for fold in range(n_folds):
-        matrix_path = run_path + f"datasets/matrix_generation/model_output/fold_{fold}/matrix_predictions/"
-        matrices.append(pl.read_parquet(matrix_path, cache_base + f"_fold_{fold}", bucket))
+        local_path = run_cache / f"fold_{fold}.parquet"
+
+        if cache and local_path.exists():
+            matrices.append(pl.read_parquet(local_path))
+        else:
+            remote_path = run_path + f"datasets/matrix_generation/model_output/fold_{fold}/matrix_predictions/"
+            df = pl.read_parquet(remote_path)
+            if cache:
+                run_cache.mkdir(parents=True, exist_ok=True)
+                df.write_parquet(local_path)
+                print(f"  cached fold {fold} → {local_path}")
+            matrices.append(df)
+
     return matrices
 
 def give_hit_at_k(
@@ -184,44 +235,68 @@ def plot_f1_comparison(
     """
     Barplot comparing standard vs off-label F1 scores across KGs.
 
+    Each KG gets its own colour from KG_COLORS.  Standard bars are solid;
+    off-label bars carry a hatch pattern so the two sets remain distinguishable
+    in greyscale / for colour-blind readers.
+
     Args:
         results:     Per-KG F1 result dicts for the standard test set.
         results_off: Per-KG F1 result dicts for the off-label test set.
-        save_path:   If set, save figure to this path instead of showing it.
+        save_path:   If set, save figure to this path (PDF).
     """
+    apply_style()
     labels = list(results.keys())
     x = np.arange(len(labels))
-    width = 0.4
+    width = 0.35
 
-    means     = [results[kg]["mean"]     for kg in labels]
-    stds      = [results[kg]["std"]      for kg in labels]
-    means_off = [results_off[kg]["mean"] for kg in labels]
-    stds_off  = [results_off[kg]["std"]  for kg in labels]
+    fig, ax = plt.subplots(figsize=figsize(PAGE_WIDTH_IN, 4.5))
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    bars1 = ax.bar(x - width / 2, means,     width, yerr=stds,     label="Standard",  capsize=10, edgecolor="black")
-    bars2 = ax.bar(x + width / 2, means_off, width, yerr=stds_off, label="Off-label", capsize=10, edgecolor="black", alpha=0.8)
+    for i, kg in enumerate(labels):
+        color = KG_COLORS.get(kg, "#888888")
+        m1, s1 = results[kg]["mean"],     results[kg]["std"]
+        m2, s2 = results_off[kg]["mean"], results_off[kg]["std"]
 
-    for bar in [*bars1, *bars2]:
-        bar.set_zorder(2)
+        bar1 = ax.bar(i - width / 2, m1, width, yerr=s1,
+                      color=color, edgecolor="black", linewidth=0.5,
+                      capsize=4, zorder=2)
+        bar2 = ax.bar(i + width / 2, m2, width, yerr=s2,
+                      color=color, edgecolor="black", linewidth=0.5,
+                      capsize=4, zorder=2, hatch="////", alpha=0.7)
+        bar1[0].set_zorder(2)
+        bar2[0].set_zorder(2)
 
-    for i, (m1, s1, m2, s2) in enumerate(zip(means, stds, means_off, stds_off)):
-        ax.text(i - width / 2, m1 + s1 + 0.02, f"{m1:.2f}±{s1:.2f}", ha="center", va="bottom", fontsize=11)
-        ax.text(i + width / 2, m2 + s2 + 0.02, f"{m2:.2f}±{s2:.2f}", ha="center", va="bottom", fontsize=11)
+        ax.text(i - width / 2, m1 + s1 + 0.02, f"{m1:.2f}±{s1:.2f}",
+                ha="center", va="bottom", fontsize=ANNOTATION_SIZE)
+        ax.text(i + width / 2, m2 + s2 + 0.02, f"{m2:.2f}±{s2:.2f}",
+                ha="center", va="bottom", fontsize=ANNOTATION_SIZE)
 
-    ax.set_ylabel("F1 Score")
-    ax.set_title("Standard vs Off-label Test Set Evaluation by KG")
+    kg_handles = [
+        mpatches.Patch(facecolor=KG_COLORS.get(kg, "#888888"), edgecolor="black",
+                       linewidth=0.5, label=kg)
+        for kg in labels
+    ]
+    style_handles = [
+        mpatches.Patch(facecolor="white", edgecolor="black", linewidth=0.5, label="Standard"),
+        mpatches.Patch(facecolor="white", edgecolor="black", linewidth=0.5,
+                       hatch="////", label="Off-label"),
+    ]
+    ax.legend(handles=kg_handles + style_handles, ncol=2, **LEGEND_KWARGS)
+
+    style_title(ax, "Standard vs Off-label Test Set Evaluation by KG")
+    ax.set_ylabel("F1 Score", fontsize=AXIS_LABEL_SIZE)
     ax.set_ylim(0, 1)
-    ax.set_xlabel("KG")
+    ax.set_xlabel("Knowledge Graph", fontsize=AXIS_LABEL_SIZE)
     ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.grid(True, alpha=0.7, axis="y")
-    ax.legend()
-    plt.tight_layout()
+    ax.set_xticklabels(labels, fontsize=TICK_LABEL_SIZE)
+    grid_y(ax)
+    clean_spines(ax)
+    fig.tight_layout()
 
     if save_path is not None:
-        plt.savefig(save_path)
-    plt.show()
+        save_fig(fig, save_path)
+    else:
+        plt.show()
+    plt.close(fig)
 
 
 def plot_av_hit_at_k_horizontal_subplots(
@@ -237,6 +312,7 @@ def plot_av_hit_at_k_horizontal_subplots(
     plot_error_bars: bool = True,
     force_full_y_axis: bool = True,
     save_path: Optional[str] = None,
+    save_pdf_each_panel: bool = False
 ) -> None:
     """
     Two horizontal subplots of average Hit@k across folds for each model and label set.
@@ -254,6 +330,7 @@ def plot_av_hit_at_k_horizontal_subplots(
         plot_error_bars:     Shade ±1 std around the mean curve.
         force_full_y_axis:   Fix y-axis to [0, 1].
         save_path:           If set, save figure to this path.
+        save_pdf_each_panel: If True, also save each panel as a separate PDF.
     """
     assert len(bool_test_cols) == 2, "bool_test_cols must contain exactly two column names"
     assert len(panel_titles) == 2, "panel_titles must contain exactly two titles"
@@ -263,40 +340,212 @@ def plot_av_hit_at_k_horizontal_subplots(
         for matrix in (matrix_folds if is_average_folds else [matrix_folds])
     )
 
-    fig, axes = plt.subplots(1, 2, figsize=(16, 5), sharey=True)
-    for ax, bool_test_col, panel_title in zip(axes, bool_test_cols, panel_titles):
+    apply_style()
+    fig, axes = plt.subplots(1, 2, figsize=grid_figsize(1, 2), sharey=True)
+    for idx, (ax, bool_test_col, panel_title) in enumerate(zip(axes, bool_test_cols, panel_titles)):
         for model_name, matrix_folds in zip(model_names, matrices_all):
+            color = KG_COLORS.get(model_name, "#888888")
             if is_average_folds:
                 d = give_average_hit_at_k_folds(matrix_folds, k_max, bool_test_col=bool_test_col)
-                ax.plot(d["k"], d["hit_at_k_mean"], label=model_name)
+                ax.plot(d["k"], d["hit_at_k_mean"], color=color, label=model_name)
                 if plot_error_bars:
-                    ax.fill_between(d["k"], d["hit_at_k_mean"] - d["hit_at_k_std"],
-                                    d["hit_at_k_mean"] + d["hit_at_k_std"], alpha=0.2)
+                    ax.fill_between(
+                        d["k"], d["hit_at_k_mean"] - d["hit_at_k_std"],
+                        d["hit_at_k_mean"] + d["hit_at_k_std"], color=color, alpha=0.2
+                    )
             else:
                 d = give_hit_at_k(matrix_folds, k_max, bool_test_col=bool_test_col)
-                ax.plot(d["k"], d["hit_at_k"], label=model_name)
+                ax.plot(d["k"], d["hit_at_k"], color=color, label=model_name)
 
         ax.plot([0, number_of_drugs], [0, 1], "k--", label="Random classifier", alpha=0.5)
-        ax.set_title(panel_title)
-        ax.set_xlabel(xlabel)
+        style_title(ax, panel_title)
+        ax.set_xlabel(xlabel, fontsize=AXIS_LABEL_SIZE)
         ax.set_xlim(0, k_max)
         if force_full_y_axis:
             ax.set_ylim(0, 1)
-        ax.grid(True)
+        grid_y(ax)
+        clean_spines(ax)
 
-    axes[0].set_ylabel(ylabel)
-    axes[1].legend(loc="lower right")
-    plt.suptitle(sup_title)
+        # Save individual panel as PDF if requested
+        if save_pdf_each_panel:
+            panel_pdf_name = f"{panel_title.lower().replace(' ', '_').replace('/', '_')}_hitatk_panel.pdf"
+            panel_fig, panel_ax = plt.subplots(figsize=figsize(PAGE_WIDTH_IN, 4.5))
+            for model_name, matrix_folds in zip(model_names, matrices_all):
+                color = KG_COLORS.get(model_name, "#888888")
+                if is_average_folds:
+                    d = give_average_hit_at_k_folds(matrix_folds, k_max, bool_test_col=bool_test_col)
+                    panel_ax.plot(d["k"], d["hit_at_k_mean"], color=color, label=model_name)
+                    if plot_error_bars:
+                        panel_ax.fill_between(
+                            d["k"], d["hit_at_k_mean"] - d["hit_at_k_std"],
+                            d["hit_at_k_mean"] + d["hit_at_k_std"], color=color, alpha=0.2
+                        )
+                else:
+                    d = give_hit_at_k(matrix_folds, k_max, bool_test_col=bool_test_col)
+                    panel_ax.plot(d["k"], d["hit_at_k"], color=color, label=model_name)
+            panel_ax.plot([0, number_of_drugs], [0, 1], "k--", label="Random classifier", alpha=0.5)
+            style_title(panel_ax, panel_title)
+            panel_ax.set_xlabel(xlabel, fontsize=AXIS_LABEL_SIZE)
+            if idx == 0:
+                panel_ax.set_ylabel(ylabel, fontsize=AXIS_LABEL_SIZE)
+            panel_ax.set_xlim(0, k_max)
+            if force_full_y_axis:
+                panel_ax.set_ylim(0, 1)
+            grid_y(panel_ax)
+            clean_spines(panel_ax)
+            panel_ax.legend(loc="lower right", **LEGEND_KWARGS)
+            panel_fig.tight_layout()
+            save_fig(panel_fig, panel_pdf_name)
+            plt.close(panel_fig)
+
+    axes[0].set_ylabel(ylabel, fontsize=AXIS_LABEL_SIZE)
+    axes[1].legend(loc="lower right", **LEGEND_KWARGS)
+    plt.suptitle(sup_title, fontsize=TITLE_SIZE)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     if save_path is not None:
-        plt.savefig(save_path)
+        save_fig(fig, save_path)
     plt.show()
+    plt.close(fig)
+
+
+def plot_combined_figure(
+    results: Dict[str, Dict],
+    results_off: Dict[str, Dict],
+    matrices_all: Tuple,
+    model_names: Tuple[str, ...],
+    k_max: int = 100,
+    plot_error_bars: bool = True,
+    save_path: Optional[str] = None,
+) -> None:
+    """
+    Three-panel stacked figure (all panels horizontal / full-width):
+
+      panel a (top)    – F1 barplot; per-KG colours, standard solid, off-label hatched
+      panel b (middle) – Average disease-specific Hit@k, standard test set
+      panel c (bottom) – Average disease-specific Hit@k, off-label test set
+
+    Args:
+        results:         Per-KG F1 result dicts for the standard test set.
+        results_off:     Per-KG F1 result dicts for the off-label test set.
+        matrices_all:    Tuple of per-fold matrix lists, one entry per model.
+        model_names:     Model display names, aligned with matrices_all.
+        k_max:           Maximum k for Hit@k curves.
+        plot_error_bars: Shade ±1 std around each mean curve.
+        save_path:       If set, save figure to this path.
+    """
+    labels = list(results.keys())
+    x = np.arange(len(labels))
+    width = 0.35
+
+    number_of_drugs = min(
+        len(matrix["source"].unique())
+        for matrix_folds in matrices_all
+        for matrix in matrix_folds
+    )
+
+    apply_style()
+    fig, (ax_bar, ax_std, ax_off) = plt.subplots(
+        3, 1, figsize=grid_figsize(3, 1),
+        gridspec_kw={"hspace": 0.75},
+    )
+
+    # ── Panel a: F1 barplot ───────────────────────────────────────────────
+    for i, kg in enumerate(labels):
+        color = KG_COLORS.get(kg, "#888888")
+        m1, s1 = results[kg]["mean"],     results[kg]["std"]
+        m2, s2 = results_off[kg]["mean"], results_off[kg]["std"]
+
+        bar1 = ax_bar.bar(i - width / 2, m1, width, yerr=s1,
+                          color=color, edgecolor="black", linewidth=0.5,
+                          capsize=4, zorder=2)
+        bar2 = ax_bar.bar(i + width / 2, m2, width, yerr=s2,
+                          color=color, edgecolor="black", linewidth=0.5,
+                          capsize=4, zorder=2, hatch="////", alpha=0.7)
+        bar1[0].set_zorder(2)
+        bar2[0].set_zorder(2)
+
+        ax_bar.text(i - width / 2, m1 + s1 + 0.02, f"{m1:.2f}±{s1:.2f}",
+                    ha="center", va="bottom", fontsize=ANNOTATION_SIZE)
+        ax_bar.text(i + width / 2, m2 + s2 + 0.02, f"{m2:.2f}±{s2:.2f}",
+                    ha="center", va="bottom", fontsize=ANNOTATION_SIZE)
+
+    kg_handles = [
+        mpatches.Patch(facecolor=KG_COLORS.get(kg, "#888888"), edgecolor="black",
+                       linewidth=0.5, label=kg)
+        for kg in labels
+    ]
+    style_handles = [
+        mpatches.Patch(facecolor="white", edgecolor="black", linewidth=0.5, label="Standard"),
+        mpatches.Patch(facecolor="white", edgecolor="black", linewidth=0.5,
+                       hatch="////", label="Off-label"),
+    ]
+    ax_bar.legend(handles=kg_handles + style_handles, ncol=3,
+                  bbox_to_anchor=(0.5, -0.18), loc="upper center", **LEGEND_KWARGS)
+    style_title(ax_bar, "Standard vs Off-label Test Set Evaluation")
+    ax_bar.set_ylabel("F1 Score", fontsize=AXIS_LABEL_SIZE)
+    ax_bar.set_ylim(0, 1)
+    ax_bar.set_xlabel("Knowledge Graph", fontsize=AXIS_LABEL_SIZE)
+    ax_bar.set_xticks(x)
+    ax_bar.set_xticklabels(labels, fontsize=TICK_LABEL_SIZE)
+    grid_y(ax_bar)
+    clean_spines(ax_bar)
+
+    # ── Panel b: Hit@k – standard test set ───────────────────────────────
+    for model_name, matrix_folds in zip(model_names, matrices_all):
+        color = KG_COLORS.get(model_name, "#888888")
+        d = give_average_hit_at_k_folds(matrix_folds, k_max, bool_test_col="is_known_positive")
+        ax_std.plot(d["k"], d["hit_at_k_mean"], color=color, label=model_name)
+        if plot_error_bars:
+            ax_std.fill_between(
+                d["k"],
+                d["hit_at_k_mean"] - d["hit_at_k_std"],
+                d["hit_at_k_mean"] + d["hit_at_k_std"],
+                color=color, alpha=0.2,
+            )
+    ax_std.plot([0, number_of_drugs], [0, 1], "k--", label="Random classifier", alpha=0.5)
+    style_title(ax_std, "Average Disease-Specific Hit@k – Standard Test Set")
+    ax_std.set_xlabel("k", fontsize=AXIS_LABEL_SIZE)
+    ax_std.set_ylabel("Average disease-specific Hit@k", fontsize=AXIS_LABEL_SIZE)
+    ax_std.set_xlim(0, k_max)
+    ax_std.set_ylim(0, 1)
+    grid_y(ax_std)
+    clean_spines(ax_std)
+    ax_std.legend(loc="lower right", **LEGEND_KWARGS)
+
+    # ── Panel c: Hit@k – off-label test set ──────────────────────────────
+    for model_name, matrix_folds in zip(model_names, matrices_all):
+        color = KG_COLORS.get(model_name, "#888888")
+        d = give_average_hit_at_k_folds(matrix_folds, k_max,
+                                        bool_test_col="ec_indications_list_off_label")
+        ax_off.plot(d["k"], d["hit_at_k_mean"], color=color, label=model_name)
+        if plot_error_bars:
+            ax_off.fill_between(
+                d["k"],
+                d["hit_at_k_mean"] - d["hit_at_k_std"],
+                d["hit_at_k_mean"] + d["hit_at_k_std"],
+                color=color, alpha=0.2,
+            )
+    ax_off.plot([0, number_of_drugs], [0, 1], "k--", label="Random classifier", alpha=0.5)
+    style_title(ax_off, "Average Disease-Specific Hit@k – Off-label Test Set")
+    ax_off.set_xlabel("k", fontsize=AXIS_LABEL_SIZE)
+    ax_off.set_ylabel("Average disease-specific Hit@k", fontsize=AXIS_LABEL_SIZE)
+    ax_off.set_xlim(0, k_max)
+    ax_off.set_ylim(0, 1)
+    grid_y(ax_off)
+    clean_spines(ax_off)
+    ax_off.legend(loc="upper right", **LEGEND_KWARGS)
+
+    if save_path is not None:
+        save_fig(fig, save_path)
+    else:
+        plt.show()
+    plt.close(fig)
 
 
 def main():
     # Load all KG matrices
     all_matrices = {
-        name: load_kg_matrices(cfg["run_path"], cfg["cache_base"])
+        name: load_kg_matrices(cfg["run_path"])
         for name, cfg in KG_CONFIGS.items()
     }
 
@@ -310,8 +559,19 @@ def main():
         print(f"{label} standard:  {results[label]['mean']:.4f} ± {results[label]['std']:.4f}")
         print(f"{label} off-label: {results_off[label]['mean']:.4f} ± {results_off[label]['std']:.4f}")
 
-    plot_f1_comparison(results, results_off)
+    plot_f1_comparison(results, results_off, save_path="f1_comparison.pdf")
 
+    plot_combined_figure(
+        results=results,
+        results_off=results_off,
+        matrices_all=tuple(all_matrices.values()),
+        model_names=tuple(all_matrices.keys()),
+        k_max=100,
+        plot_error_bars=True,
+        save_path="combined_figure.pdf",
+    )
+
+    # Call the horizontal subplots function and save each panel as a PDF
     plot_av_hit_at_k_horizontal_subplots(
         matrices_all=tuple(all_matrices.values()),
         model_names=tuple(all_matrices.keys()),
@@ -324,6 +584,8 @@ def main():
         k_max=100,
         plot_error_bars=True,
         force_full_y_axis=True,
+        save_path="hitatk_horizontal_subplots.pdf",
+        save_pdf_each_panel=True
     )
 
 if __name__ == "__main__":

@@ -1,21 +1,21 @@
 """Script used to calculate top primary knowledge sources for each upstream KG in EC-KG"""
 import polars as pl
-import os 
+from datasets import load_dataset, Dataset
+import duckdb
 import dotenv
 
 # load env variables with your HF_TOKEN
 dotenv.load_dotenv()
 
-# loading datasets through Dataset repo instead of polars library directly to avoid rate-limits
-df = pl.read_parquet("hf://datasets/everycure/kg-edges/data/edges/train-*.parquet", storage_options={"token": os.environ["HF_TOKEN"]})
+# # loading datasets through Dataset repo instead of polars library directly to avoid rate-limits
+# df = Dataset.to_polars(load_dataset("everycure/kg-edges")['train'])
 
-# filter for PrimeKG, RoboKOP and RTX-KG2 and save each for duckdb extraction
-df.filter(pl.col('upstream_data_source').list.contains('primekg')).write_parquet('data/primekg_edges.parquet')
-df.filter(pl.col('upstream_data_source').list.contains('robokop')).write_parquet('data/robokop_edges.parquet')
-df.filter(pl.col('upstream_data_source').list.contains('rtx_kg2')).write_parquet('data/rtx_kg2_edges.parquet')
+# # filter for PrimeKG, RoboKOP and RTX-KG2 and save each for duckdb extraction
+# df.filter(pl.col('upstream_data_source').list.contains('primekg')).write_parquet('data/primekg_edges.parquet')
+# df.filter(pl.col('upstream_data_source').list.contains('robokop')).write_parquet('data/robokop_edges.parquet')
+# df.filter(pl.col('upstream_data_source').list.contains('rtxkg2')).write_parquet('data/rtx_kg2_edges.parquet')
 
 # run SQL to calculate edge counts per source
-import duckdb
 query = """
 WITH edges AS (
     SELECT
@@ -47,26 +47,39 @@ WITH edges AS (
         object AS object_id,
         primary_knowledge_source
     FROM 'data/primekg_edges.parquet'
-    WHERE subject IS NOT NULL AND predicate IS NOT NULL AND object IS NOT NULL
-),
-dedup AS (
-    -- de-duplicate within each KG by edge_key
+    WHERE subject IS NOT NULL AND predicate IS NOT NULL AND object IS NOT NULL  
+
+), dedups AS (
     SELECT DISTINCT
         kg_name,
-        subject_id, predicate, object_id,
         primary_knowledge_source,
-        subject_id || '␞' || predicate || '␞' || object_id AS edge_key
+        count(*) as dup_count
+
     FROM edges
+    group by kg_name, primary_knowledge_source
+
 )
 SELECT
-    kg_name,
+    kg_name AS kg_name,
     primary_knowledge_source,
-    COUNT(DISTINCT edge_key) AS edge_count
-FROM dedup
-GROUP BY kg_name, primary_knowledge_source
-ORDER BY kg_name, edge_count DESC
+    dup_count
+FROM (
+    SELECT
+        kg_name,
+        primary_knowledge_source,
+        dup_count,
+        COUNT(*) OVER (
+            PARTITION BY primary_knowledge_source
+        ) AS source_count
+    FROM dedups
+) t
+WHERE source_count = 1
+ORDER BY
+    dup_count DESC,
+    primary_knowledge_source DESC;
 """
 
 res = duckdb.sql(query)
 print(res)
 res.write_parquet('data/edge_counts_by_source.parquet')
+res.write_csv('data/edge_counts_by_source.csv')

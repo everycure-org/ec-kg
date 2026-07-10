@@ -7,13 +7,13 @@ import dotenv
 # load env variables with your HF_TOKEN
 dotenv.load_dotenv()
 
-# loading datasets through Dataset repo instead of polars library directly to avoid rate-limits
-df = Dataset.to_polars(load_dataset("everycure/kg-edges")['train'])
+# # loading datasets through Dataset repo instead of polars library directly to avoid rate-limits
+# df = Dataset.to_polars(load_dataset("everycure/kg-edges")['train'])
 
-# filter for PrimeKG, RoboKOP and RTX-KG2 and save each for duckdb extraction
-df.filter(pl.col('upstream_data_source').list.contains('primekg')).write_parquet('data/primekg_edges.parquet')
-df.filter(pl.col('upstream_data_source').list.contains('robokop')).write_parquet('data/robokop_edges.parquet')
-df.filter(pl.col('upstream_data_source').list.contains('rtxkg2')).write_parquet('data/rtx_kg2_edges.parquet')
+# # filter for PrimeKG, RoboKOP and RTX-KG2 and save each for duckdb extraction
+# df.filter(pl.col('upstream_data_source').list.contains('primekg')).write_parquet('data/primekg_edges.parquet')
+# df.filter(pl.col('upstream_data_source').list.contains('robokop')).write_parquet('data/robokop_edges.parquet')
+# df.filter(pl.col('upstream_data_source').list.contains('rtxkg2')).write_parquet('data/rtx_kg2_edges.parquet')
 
 # run SQL to calculate edge counts per source
 query = """
@@ -38,6 +38,17 @@ WITH edges AS (
     FROM 'data/rtx_kg2_edges.parquet'
     WHERE subject IS NOT NULL AND predicate IS NOT NULL AND object IS NOT NULL
 
+    UNION ALL
+
+    SELECT
+        'PrimeKG' AS kg_name,
+        subject AS subject_id,
+        predicate,
+        object AS object_id,
+        primary_knowledge_source
+    FROM 'data/primekg_edges.parquet'
+    WHERE subject IS NOT NULL AND predicate IS NOT NULL AND object IS NOT NULL  
+
 ), dups AS (
     SELECT
         kg_name,
@@ -49,6 +60,7 @@ WITH edges AS (
 
 )
 SELECT
+    
     primary_knowledge_source,
     SUM(dup_count) AS total_dup_count
 FROM (
@@ -61,7 +73,7 @@ FROM (
         ) AS source_count
     FROM dups
 ) t
-WHERE source_count > 1
+WHERE source_count < 1
 GROUP BY primary_knowledge_source
 ORDER BY
     total_dup_count DESC,
@@ -70,4 +82,5 @@ ORDER BY
 
 res = duckdb.sql(query)
 print(res)
-res.write_parquet('data/edge_counts_by_source_shared.parquet')
+res.write_parquet('data/edge_counts_by_source.parquet')
+res.write_csv('data/edge_counts_by_source.csv')

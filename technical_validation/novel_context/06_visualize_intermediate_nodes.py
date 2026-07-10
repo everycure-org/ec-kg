@@ -18,6 +18,7 @@ Either path can be a local directory or a gs:// URI.
 
 import io
 import os
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Optional
@@ -27,9 +28,19 @@ import gcsfs
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from matplotlib.ticker import EngFormatter
 from tqdm import tqdm
+
+sys.path.append(str(Path(__file__).parent.parent / "ml_validation"))
+from fig_style import (
+    apply_style,
+    figsize,
+    style_title, clean_spines, grid_y,
+    LEGEND_KWARGS,
+    AXIS_LABEL_SIZE, TICK_LABEL_SIZE,
+    PAGE_WIDTH_IN, SAVE_DPI,
+    savefig as save_fig,
+)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -53,15 +64,100 @@ KG_NAMES = list(KG_FILES.keys())
 CATEGORIES_OF_INTEREST = [
     'Gene/Protein',
     'BiologicalProcess',
-    'Pathway',
-    'MolecularActivity',
     'CellularComponent',
-    'Anatomy',
 ]
 
-# Publication style
-sns.set_style('whitegrid')
-plt.rcParams.update({'figure.dpi': 300, 'font.size': 12, 'font.family': 'sans-serif'})
+# ── Color mapping (Okabe-Ito / Tol colorblind-safe palette) ─────────────────
+GROUPS = [
+    ("Molecular / Genetic",  "#0072B2"),
+    ("Chemical / Drug",      "#009E73"),
+    ("Disease / Phenotype",  "#D55E00"),
+    ("Anatomy / Cell",       "#CC79A7"),
+    ("Biological Process",   "#E69F00"),
+    ("Organism / Taxonomy",  "#6A3D9A"),
+    ("Clinical",             "#56B4E9"),
+    ("Miscellaneous",        "#666666"),
+]
+GROUP_COLORS = dict(GROUPS)
+
+NODE_TO_GROUP = {
+    "biolink:Gene":                              "Molecular / Genetic",
+    "biolink:Protein":                           "Molecular / Genetic",
+    "biolink:Transcript":                        "Molecular / Genetic",
+    "biolink:GeneFamily":                        "Molecular / Genetic",
+    "biolink:Polypeptide":                       "Molecular / Genetic",
+    "biolink:MicroRNA":                          "Molecular / Genetic",
+    "biolink:RNAProduct":                        "Molecular / Genetic",
+    "biolink:NucleicAcidEntity":                 "Molecular / Genetic",
+    "biolink:GenomicEntity":                     "Molecular / Genetic",
+    "biolink:Exon":                              "Molecular / Genetic",
+    "biolink:SmallMolecule":                     "Chemical / Drug",
+    "biolink:ChemicalEntity":                    "Chemical / Drug",
+    "biolink:Drug":                              "Chemical / Drug",
+    "biolink:MolecularMixture":                  "Chemical / Drug",
+    "biolink:ChemicalMixture":                   "Chemical / Drug",
+    "biolink:ComplexMolecularMixture":           "Chemical / Drug",
+    "biolink:ChemicalExposure":                  "Chemical / Drug",
+    "biolink:Food":                              "Chemical / Drug",
+    "biolink:MolecularEntity":                   "Chemical / Drug",
+    "biolink:Treatment":                         "Chemical / Drug",
+    "biolink:Disease":                           "Disease / Phenotype",
+    "biolink:PhenotypicFeature":                 "Disease / Phenotype",
+    "biolink:DiseaseOrPhenotypicFeature":        "Disease / Phenotype",
+    "biolink:PathologicalProcess":               "Disease / Phenotype",
+    "biolink:BehavioralFeature":                 "Disease / Phenotype",
+    "biolink:AnatomicalEntity":                  "Anatomy / Cell",
+    "biolink:GrossAnatomicalStructure":          "Anatomy / Cell",
+    "biolink:Cell":                              "Anatomy / Cell",
+    "biolink:CellLine":                          "Anatomy / Cell",
+    "biolink:CellularComponent":                 "Anatomy / Cell",
+    "biolink:BiologicalProcess":                 "Biological Process",
+    "biolink:MolecularActivity":                 "Biological Process",
+    "biolink:Pathway":                           "Biological Process",
+    "biolink:PhysiologicalProcess":              "Biological Process",
+    "biolink:EnvironmentalProcess":              "Biological Process",
+    "biolink:Activity":                          "Biological Process",
+    "biolink:BiologicalEntity":                  "Biological Process",
+    "biolink:OrganismTaxon":                     "Organism / Taxonomy",
+    "biolink:PopulationOfIndividualOrganisms":   "Organism / Taxonomy",
+    "biolink:IndividualOrganism":                "Organism / Taxonomy",
+    "biolink:Human":                             "Organism / Taxonomy",
+    "biolink:MaterialSample":                    "Organism / Taxonomy",
+    "biolink:LifeStage":                         "Organism / Taxonomy",
+    "biolink:Cohort":                            "Organism / Taxonomy",
+    "biolink:Behavior":                          "Organism / Taxonomy",
+    "biolink:Procedure":                         "Clinical",
+    "biolink:ClinicalAttribute":                 "Clinical",
+    "biolink:ClinicalIntervention":              "Clinical",
+    "biolink:NamedThing":                        "Miscellaneous",
+    "biolink:PhysicalEntity":                    "Miscellaneous",
+    "biolink:Agent":                             "Miscellaneous",
+    "biolink:Publication":                       "Miscellaneous",
+    "biolink:InformationContentEntity":          "Miscellaneous",
+    "biolink:Device":                            "Miscellaneous",
+    "biolink:GeographicLocation":                "Miscellaneous",
+    "biolink:Phenomenon":                        "Miscellaneous",
+    "biolink:Event":                             "Miscellaneous",
+    "biolink:RetrievalSource":                   "Miscellaneous",
+    "biolink:EnvironmentalFeature":              "Miscellaneous",
+    "biolink:OrganismAttribute":                 "Miscellaneous",
+}
+
+_FALLBACK_COLOR = "#aaaaaa"
+
+# Map each CATEGORIES_OF_INTEREST label → group colour via the biolink key
+_CAT_TO_BIOLINK = {
+    'Gene/Protein':      None,                       # merged Gene + Protein
+    'BiologicalProcess': 'biolink:BiologicalProcess',
+    'CellularComponent': 'biolink:CellularComponent',
+}
+CATEGORY_DISPLAY_COLORS = {
+    cat: (
+        GROUP_COLORS["Molecular / Genetic"] if bl is None
+        else GROUP_COLORS.get(NODE_TO_GROUP.get(bl, "Miscellaneous"), _FALLBACK_COLOR)
+    )
+    for cat, bl in _CAT_TO_BIOLINK.items()
+}
 
 
 # ---------------------------------------------------------------------------
@@ -101,17 +197,18 @@ def ensure_local_dir(path: str) -> None:
         Path(path).mkdir(parents=True, exist_ok=True)
 
 
-def save_figure(path: str, dpi: int = 300, bbox_inches: str = 'tight', **kwargs) -> None:
-    """Save the current matplotlib figure to a local path or GCS URI."""
+def save_figure(fig: plt.Figure, path: str, dpi: int = SAVE_DPI, bbox_inches: str = 'tight', **kwargs) -> None:
+    """Save a matplotlib figure to a local path or GCS URI."""
     if is_gcs_path(path):
         fmt = Path(path).suffix.lstrip('.') or 'png'
         buf = io.BytesIO()
-        plt.savefig(buf, format=fmt, dpi=dpi, bbox_inches=bbox_inches, **kwargs)
+        fig.savefig(buf, format=fmt, dpi=dpi, bbox_inches=bbox_inches, **kwargs)
         buf.seek(0)
         with get_gcs_fs().open(path, 'wb') as f:
             f.write(buf.getvalue())
     else:
-        plt.savefig(path, dpi=dpi, bbox_inches=bbox_inches, **kwargs)
+        fig.savefig(path, dpi=dpi, bbox_inches=bbox_inches, **kwargs)
+        print(f"Saved → {path}")
 
 
 def save_parquet(df: pd.DataFrame, path: str) -> None:
@@ -242,7 +339,8 @@ def plot_barplot_ax(
     show_ylabel: bool = True,
 ) -> None:
     """
-    Draw a grouped barplot of key biological entity intermediate node counts.
+    Draw a grouped barplot of key biological entity intermediate node counts
+    on a logarithmic y-axis.
 
     Args:
         ax:                 Matplotlib axes to draw on.
@@ -255,24 +353,31 @@ def plot_barplot_ax(
 
     x = np.arange(len(KG_NAMES))
     n_cats = len(CATEGORIES_OF_INTEREST)
-    width = 0.16
+    width = 0.22
 
     for i, cat in enumerate(CATEGORIES_OF_INTEREST):
         offset = (i - n_cats / 2 + 0.5) * width
-        ax.bar(x + offset, ax_data[cat], width,
-               label=cat, alpha=0.85, edgecolor='black', linewidth=0.4)
+        color = CATEGORY_DISPLAY_COLORS.get(cat, _FALLBACK_COLOR)
+        # Clip to 1 so zero-count bars don't break the log scale
+        heights = [max(v, 1) for v in ax_data[cat]]
+        ax.bar(x + offset, heights, width,
+               label=cat, color=color, alpha=0.9,
+               edgecolor='black', linewidth=0.5, zorder=2)
 
-    ax.set_xlabel('Knowledge Graph', fontsize=18, fontweight='bold')
+    ax.set_yscale('log')
+    ax.set_xlabel('Knowledge Graph', fontsize=AXIS_LABEL_SIZE)
     if show_ylabel:
-        ax.set_ylabel('Number of Intermediate Nodes', fontsize=18, fontweight='bold')
-    ax.set_title(title, fontsize=18, fontweight='bold', pad=18)
+        ax.set_ylabel('Intermediate node count (log scale)', fontsize=AXIS_LABEL_SIZE)
+    style_title(ax, title)
     ax.set_xticks(x)
-    ax.set_xticklabels(KG_NAMES, rotation=45, ha='right', fontsize=15)
-    ax.tick_params(axis='y', labelsize=15)
-    ax.grid(axis='y', alpha=0.3)
-    ax.yaxis.set_major_formatter(EngFormatter())
+    ax.set_xticklabels(KG_NAMES, rotation=30, ha='right', fontsize=TICK_LABEL_SIZE)
+    ax.tick_params(axis='y', labelsize=TICK_LABEL_SIZE)
+    ax.yaxis.set_major_formatter(EngFormatter(places=0))
+    grid_y(ax)
+    ax.grid(axis='y', which='minor', color='#e0e0e0', lw=0.2, zorder=0)
+    clean_spines(ax)
     if legend:
-        ax.legend(fontsize=15, loc='upper left', frameon=True)
+        ax.legend(loc='upper left', **LEGEND_KWARGS)
 
 
 # ---------------------------------------------------------------------------
@@ -327,26 +432,31 @@ def plot_intermediate_node_comparison(
     Create a two-panel figure comparing intermediate node distributions for
     2-hop and 3-hop paths side by side and save to VIZ_DIR.
     """
-    fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(16, 7))
+    apply_style()
+    fig, (ax_left, ax_right) = plt.subplots(
+        1, 2, figsize=figsize(PAGE_WIDTH_IN, 4.5)
+    )
 
     plot_barplot_ax(
         ax_left, stats_2hop,
-        'A. Key Biological Entities as\nIntermediate Nodes (2-hop paths)',
+        'Key biological nodes as intermediate entities — 2-hop paths',
         legend=True,
         show_ylabel=True,
     )
     plot_barplot_ax(
         ax_right, stats_3hop,
-        'B. Key Biological Entities as\nIntermediate Nodes (3-hop paths)',
+        'Key biological nodes as intermediate entities — 3-hop paths',
         legend=False,
         show_ylabel=False,
     )
 
-    plt.tight_layout()
-    save_figure(join_path(VIZ_DIR, 'intermediate_node_2v3hop.png'), dpi=300)
-    save_figure(join_path(VIZ_DIR, 'intermediate_node_2v3hop.svg'))
-    print(f'\n✓ Saved figure to {VIZ_DIR}/intermediate_node_2v3hop.png / .svg')
-    plt.close()
+    fig.tight_layout()
+
+    ensure_local_dir(VIZ_DIR)
+    save_fig(fig, join_path(VIZ_DIR, 'intermediate_node_2v3hop.pdf'))
+    save_figure(fig, join_path(VIZ_DIR, 'intermediate_node_2v3hop.png'))
+    save_figure(fig, join_path(VIZ_DIR, 'intermediate_node_2v3hop.svg'))
+    plt.close(fig)
 
 
 def _df_to_stats(df: pd.DataFrame) -> dict:
