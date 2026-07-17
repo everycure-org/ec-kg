@@ -1,0 +1,13 @@
+predicate,count
+biolink:expressed_in,3076176
+biolink:associated_with,475786
+biolink:directly_physically_interacts_with,2705388
+biolink:has_phenotype,1128226
+biolink:interacts_with,1328700
+biolink:superclass_of,446524
+biolink:contraindicated_in,122168
+biolink:treats,33892
+biolink:has_side_effect,129568
+biolink:correlated_with,12054
+biolink:affected_by,18528
+biolink:applied_to_treat,9500

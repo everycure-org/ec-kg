@@ -78,3 +78,29 @@ Once the modelling pipelines run to completion, the following makefile command c
 ```
 make ml_validation
 ```
+
+## Figure Generation
+Scripts for the paper's figures. All outputs are PDF, produced with matplotlib.
+
+| Directory | Script | Output |
+|---|---|---|
+| `sankey/` | `sankey.py` | `sankey.pdf` — full EC-KG edge-flow diagram |
+| `distribution/` | `distribution.py` | `distribution_nodes.pdf`, `distribution_edges.pdf` |
+| `distribution/` | `upstream_distribution.py` | `upstream_nodes.pdf`, `upstream_edges.pdf`, `upstream_pks.pdf` — grouped bar charts |
+| `distribution/` | `upstream_stacked_bar.py` | `upstream_stacked_bar.pdf` — 3-panel version of the above; one stacked bar per item (top 15), segmented by each upstream source's contribution |
+| `distribution/` | `predicate_distribution.py` | `predicate_distribution.pdf` — biolink hierarchy tree |
+| `CoreEntities_sankey/` | `drug_sankey.py` | `drug_sankey_full.pdf`, `drug_sankey_grouped.pdf` |
+| `CoreEntities_sankey/` | `disease_sankey.py` | `disease_sankey_full.pdf`, `disease_sankey_grouped.pdf` |
+| `UpstreamData_Venn/` | `upstream_venn.py` | `upstream_venn_nodes.pdf`, `upstream_venn_pks.pdf`, `upstream_venn_node_ids.pdf`, `upstream_venn_edge_triples.pdf` |
+| `UpstreamData_Venn/` | `upstream_upset.py` | `upstream_upset.pdf` — UpSet-style replacement for the node ID, edge triple, and PKS Venn diagrams above (3 panels, bar + membership matrix) |
+
+Shared color constants live in `eckg/colors.py`, shared matplotlib styling in `eckg/style.py`, and shared category-grouping logic in `eckg/grouping.py`; all figure scripts import from these instead of redefining them locally.
+
+The `eckg` package needs to be installed (editable) for these imports to resolve:
+```bash
+pip install -e .
+gcloud auth application-default login
+```
+All data is read from `mtrx-hub-dev-3of.release_v0_15_19` on BigQuery; results are cached to local CSV/JSON files after the first query, so delete a cache file to force a re-query.
+
+Final publication figures are assembled and polished in Adobe Illustrator from these PDF outputs.
