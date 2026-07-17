@@ -1,0 +1,11 @@
+category,count
+biolink:SmallMolecule,7821
+biolink:ChemicalExposure,688
+biolink:GrossAnatomicalStructure,14025
+biolink:BiologicalProcess,28642
+biolink:MolecularActivity,11169
+biolink:CellularComponent,4176
+biolink:Pathway,2064
+biolink:PhenotypicFeature,15311
+biolink:Disease,20589
+biolink:Gene,27605

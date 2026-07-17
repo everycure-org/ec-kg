@@ -23,6 +23,7 @@ dependencies = [
     "cryptography==48.0.0",
     "cycler==0.12.1",
     "datasets==5.0.0",
+    "db-dtypes==1.7.0",
     "debugpy==1.8.20",
     "decorator==5.3.1",
     "dill==0.4.1",
@@ -70,6 +71,7 @@ dependencies = [
     "markdown-it-py==4.2.0",
     "matplotlib==3.10.8",
     "matplotlib-inline==0.2.2",
+    "matplotlib-venn==1.1.2",
     "mdurl==0.1.2",
     "multidict==6.7.1",
     "multiprocess==0.70.19",
@@ -134,3 +136,10 @@ dependencies = [
     "xxhash==3.7.0",
     "yarl==1.24.2",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["eckg"]
