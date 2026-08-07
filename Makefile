@@ -26,6 +26,19 @@ generate_sop:
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name integrated_kg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/integrated_kg
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name filtered_kg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/filtered_kg
 
-# NOTE: this command assumes that modelling results and outputs are stored in GCS or paths specified in the analyse_output.py script
-ml_validation:
-	python technical_validation/ml_validation/analyse_output.py
+FIGURE_8_DIR := technical_validation/ml_validation/figure_8_ml_validation
+FIGURE_8_OUTCOMES := $(FIGURE_8_DIR)/outcomes
+
+# Reproduces the committed Figure 8 statistical-validation table.
+ml_validation: figure_8_stats
+
+# Requires MATRIX_ROOT to contain ec/, prime/, robokop/, and rtx/ matrix fold directories.
+figure_8_extract:
+	@test -n "$(MATRIX_ROOT)" || (echo "Set MATRIX_ROOT to the downloaded Figure 8 matrix directory"; exit 1)
+	uv run python $(FIGURE_8_DIR)/extract_outcomes.py --matrix-root $(MATRIX_ROOT) --output-dir $(FIGURE_8_OUTCOMES)
+
+figure_8_stats:
+	uv run python $(FIGURE_8_DIR)/statistical_analysis.py \
+		--classification-outcomes $(FIGURE_8_OUTCOMES)/figure_8_classification_outcomes.parquet \
+		--off-label-ranks $(FIGURE_8_OUTCOMES)/figure_8_off_label_ranks.parquet \
+		--output $(FIGURE_8_OUTCOMES)/figure_8_statistical_tests.csv
