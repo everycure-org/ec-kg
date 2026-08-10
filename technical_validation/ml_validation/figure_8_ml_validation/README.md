@@ -1,7 +1,9 @@
 # Figure 8 — machine-learning validation
 
 This directory contains the computation and statistical inference for the manuscript
-asset `figure8_combined_figure_ml_validation` (Figure 8).
+asset `figure8_combined_figure_ml_validation` (Figure 8). See [`RESULTS.md`](RESULTS.md)
+for the readable statistical-results tables; the underlying full-precision output is
+in [`outcomes/figure_8_statistical_tests.csv`](outcomes/figure_8_statistical_tests.csv).
 
 ## Scope
 
