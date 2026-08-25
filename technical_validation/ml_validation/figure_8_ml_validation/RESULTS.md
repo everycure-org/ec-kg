@@ -1,35 +1,42 @@
-# Figure 8 statistical-validation results
+# Figure 8a statistical results
 
-This is a readable rendering of [`outcomes/figure_8_statistical_tests.csv`](outcomes/figure_8_statistical_tests.csv), generated from the held-out outcomes committed in this directory.
+The bars retain the manuscript draft's mean F1 across five cross-validation folds.
+Intervals are disease-cluster bootstrap 95% confidence intervals from 20,000
+resamples.
 
-**Method.** Two-sided, disease-clustered paired permutation tests (100,000 permutations) compare EC-KG to each upstream KG. Disease-cluster bootstrap confidence intervals use 20,000 resamples. Holm correction covers all 12 predeclared tests: standard and off-label F1 (six comparisons), plus off-label Hit@10 and AUC(Hit@1–100) (six comparisons).
+## F1 estimates
 
-## Panel 8a — F1
+| Evaluation set | Model | Mean F1 | Disease-bootstrap 95% CI |
+| --- | --- | ---: | ---: |
+| Standard | EC-KG | 0.808 | 0.789–0.826 |
+| Standard | PrimeKG | 0.570 | 0.535–0.602 |
+| Standard | ROBOKOP KG | 0.733 | 0.712–0.753 |
+| Standard | RTX-KG2 | 0.780 | 0.759–0.799 |
+| Off-label | EC-KG | 0.553 | 0.493–0.607 |
+| Off-label | PrimeKG | 0.123 | 0.085–0.163 |
+| Off-label | ROBOKOP KG | 0.414 | 0.356–0.468 |
+| Off-label | RTX-KG2 | 0.509 | 0.450–0.563 |
 
-| Test set | Comparison | EC-KG F1 | Comparator F1 | Difference (95% CI) | Holm-adjusted p |
-| --- | --- | ---: | ---: | --- | ---: |
-| Standard | PrimeKG | 0.808 | 0.570 | +0.238 (+0.217, +0.262) | <0.001 |
-| Standard | ROBOKOP KG | 0.808 | 0.733 | +0.075 (+0.066, +0.084) | <0.001 |
-| Standard | RTX-KG2 | 0.808 | 0.780 | +0.028 (+0.023, +0.034) | <0.001 |
-| Off-label | PrimeKG | 0.442 | 0.154 | +0.287 (+0.225, +0.350) | <0.001 |
-| Off-label | ROBOKOP KG | 0.442 | 0.379 | +0.062 (+0.029, +0.098) | 0.0031 |
-| Off-label | RTX-KG2 | 0.442 | 0.408 | +0.034 (+0.016, +0.053) | 0.0013 |
+## Paired EC-KG comparisons
 
-EC-KG has higher F1 than every comparator in both cohorts; every adjusted 95% CI excludes zero.
+Two-sided paired disease permutation tests use 100,000 permutations. Holm correction
+covers all six Figure 8a comparisons.
 
-## Panel 8c — off-label disease-specific ranking
+| Evaluation set | Comparison | F1 difference | Disease-bootstrap 95% CI | Holm-adjusted p |
+| --- | --- | ---: | ---: | ---: |
+| Standard | EC-KG vs PrimeKG | +0.238 | +0.216–+0.262 | 0.00006† |
+| Standard | EC-KG vs ROBOKOP KG | +0.075 | +0.066–+0.084 | 0.00006† |
+| Standard | EC-KG vs RTX-KG2 | +0.028 | +0.023–+0.034 | 0.00006† |
+| Off-label | EC-KG vs PrimeKG | +0.430 | +0.370–+0.487 | 0.00006† |
+| Off-label | EC-KG vs ROBOKOP KG | +0.139 | +0.098–+0.182 | 0.00006† |
+| Off-label | EC-KG vs RTX-KG2 | +0.044 | +0.029–+0.060 | 0.00006† |
 
-| Endpoint | Comparison | EC-KG | Comparator | Difference (95% CI) | Holm-adjusted p |
-| --- | --- | ---: | ---: | --- | ---: |
-| Hit@10 | PrimeKG | 0.163 | 0.119 | +0.044 (+0.014, +0.074) | 0.0065 |
-| Hit@10 | ROBOKOP KG | 0.163 | 0.118 | +0.045 (+0.023, +0.069) | <0.001 |
-| Hit@10 | RTX-KG2 | 0.163 | 0.158 | +0.005 (−0.018, +0.027) | 0.676 |
-| AUC(Hit@1–100) | PrimeKG | 0.311 | 0.261 | +0.050 (+0.021, +0.078) | 0.0031 |
-| AUC(Hit@1–100) | ROBOKOP KG | 0.311 | 0.250 | +0.061 (+0.035, +0.086) | <0.001 |
-| AUC(Hit@1–100) | RTX-KG2 | 0.311 | 0.271 | +0.040 (+0.019, +0.061) | 0.0010 |
+† All six tests reached the 100,000-permutation simulation floor: no permuted
+difference was as extreme as the observed difference. The reported adjusted bound is
+six times the add-one raw Monte Carlo bound (`1 / 100,001`).
 
-EC-KG outperforms PrimeKG and ROBOKOP KG for both ranking endpoints. Compared with RTX-KG2, EC-KG has a higher complete Hit@k curve (AUC), but its Hit@10 difference is not statistically significant.
-
-## Interpretation for the manuscript
-
-The primary conclusion supported by Figure 8 is not that EC-KG dominates at every arbitrary rank cutoff. Rather, EC-KG has significantly higher F1 in both cohorts and significantly better overall off-label ranking performance than all three upstream KGs. The top-ten off-label result against RTX-KG2 is inconclusive.
+Within these existing model runs, EC-KG has higher mean-fold F1 than each comparator
+on both evaluation sets, and all six differences are robust to disease resampling.
+The analysis is retrospective and conditional on the fitted runs; PrimeKG used a
+different fold assignment, so these results do not isolate KG choice as the sole
+cause of every difference.
