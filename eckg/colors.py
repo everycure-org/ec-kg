@@ -99,6 +99,13 @@ UPSTREAM_SOURCE_COLORS = {
     "PrimeKG": "#FF7F0E",
 }
 
+ML_VALIDATION_MODEL_COLORS = {
+    "EC-KG": GROUP_COLORS["Chemical / Drug"],
+    "PrimeKG": UPSTREAM_SOURCE_COLORS["PrimeKG"],
+    "ROBOKOP KG": UPSTREAM_SOURCE_COLORS["ROBOKOP"],
+    "RTX-KG2": UPSTREAM_SOURCE_COLORS["RTX-KG2"],
+}
+
 # Venn diagram region colors (RGB midpoint blends of the relevant source colors)
 UPSTREAM_REGION_COLORS = {
     "100": UPSTREAM_SOURCE_COLORS["ROBOKOP"],

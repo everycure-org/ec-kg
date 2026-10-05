@@ -74,10 +74,19 @@ git checkout 58ff055483c1fe1fb6f3ee57379729e4ac753e4d
 kedro run --pipeline feature_and_modelling
 ```
 
-Once the modelling pipelines run to completion, the following makefile command can be executed to reproduce analysis present in the Technical Validation section:
+Figure 8a code and its committed compact evaluation outcomes live in [`technical_validation/ml_validation/figure_8_ml_validation/`](technical_validation/ml_validation/figure_8_ml_validation/). Reproduce the disease-bootstrap F1 analysis and PDF without GCS access:
+
+```bash
+make figure_8a
 ```
-make ml_validation
+
+To regenerate the compact outcomes from the full downloaded model matrices, use:
+
+```bash
+MATRIX_ROOT=/path/to/downloaded/figure-8-matrices make figure_8_extract figure_8a
 ```
+
+See that directory's README for the exact model-run provenance and statistical plan.
 
 ## Figure Generation
 Scripts for the paper's figures. All outputs are PDF, produced with matplotlib.

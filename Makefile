@@ -26,6 +26,25 @@ generate_sop:
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name integrated_kg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/integrated_kg
 	python technical_validation/novel_context/02_calculate_sop.py --kg_name filtered_kg --kg_path /Users/piotrkaniewski/work/ec-kg-analysis/data/filtered_kg
 
-# NOTE: this command assumes that modelling results and outputs are stored in GCS or paths specified in the analyse_output.py script
-ml_validation:
-	python technical_validation/ml_validation/analyse_output.py
+FIGURE_8_DIR := technical_validation/ml_validation/figure_8_ml_validation
+FIGURE_8_OUTCOMES := $(FIGURE_8_DIR)/outcomes
+
+# Reproduces the revised Figure 8a statistics and PDF.
+ml_validation: figure_8a
+
+# Requires MATRIX_ROOT to contain ec/, prime/, robokop/, and rtx/ matrix fold directories.
+figure_8_extract:
+	@test -n "$(MATRIX_ROOT)" || (echo "Set MATRIX_ROOT to the downloaded Figure 8 matrix directory"; exit 1)
+	uv run python $(FIGURE_8_DIR)/extract_outcomes.py --matrix-root $(MATRIX_ROOT) --output-dir $(FIGURE_8_OUTCOMES)
+
+figure_8_stats:
+	uv run python $(FIGURE_8_DIR)/statistical_analysis.py \
+		--classification-outcomes $(FIGURE_8_OUTCOMES)/figure_8_classification_outcomes.parquet \
+		--estimates-output $(FIGURE_8_OUTCOMES)/figure_8a_f1_estimates.csv \
+		--comparisons-output $(FIGURE_8_OUTCOMES)/figure_8a_f1_comparisons.csv
+
+figure_8a: figure_8_stats
+	uv run python $(FIGURE_8_DIR)/generate_figure_8a.py \
+		--estimates $(FIGURE_8_OUTCOMES)/figure_8a_f1_estimates.csv \
+		--comparisons $(FIGURE_8_OUTCOMES)/figure_8a_f1_comparisons.csv \
+		--output $(FIGURE_8_DIR)/figure_8a_f1_bootstrap.pdf
