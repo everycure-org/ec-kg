@@ -1,11 +1,7 @@
 # EC-KG: Every Cure Knowledge Graph, a Unified Biomedical Knowledge Graph for Drug Repurposing
 
-This repository contains complementary analysis code to the Every Cure KG publication. 
-
-DOI to the datasets published: doi.org/10.5281/zenodo.20815441
-
-Paper: to be added
-
+Paper: [Every Cure Knowledge Graph: A Unified Biomedical Knowledge Graph for Drug Repurposing](https://www.biorxiv.org/content/10.64898/2026.08.26.747253v1)
+Data: doi.org/10.5281/zenodo.20815441
 
 ![graphical-abstract](./assets/kg_paper_fig1_v2.drawio.png)
 
